@@ -35,6 +35,7 @@ fn handle_request(mut stream: TcpStream) {
             + &string_param.len().to_string().to_owned()
             + "\r\n"
             + string_param
+            + "\r\n"
     }
 
     stream.write_all(response.as_bytes()).unwrap();
