@@ -27,15 +27,12 @@ fn handle_request(mut stream: TcpStream) {
     if route == "/" {
         response = "HTTP/1.1 200 OK\r\n\r\n".to_string();
     } else if route.contains("/echo/") {
-        let string_param = route.split_once("/echo/").unwrap().1;
-        response = "HTTP/1.1 200 OK\r\n
-                    Content-Type: text/pain\r\n
-                    Content-Length: "
-            .to_owned()
-            + &string_param.len().to_string().to_owned()
-            + "\r\n"
-            + string_param
-            + "\r\n"
+        let string_param = route.split_once("/echo/").unwrap().1.to_string();
+        let string_param_len = string_param.len().to_string().to_owned();
+        response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {string_param_len}\r\n\r\n{string_param}"
+        );
+        dbg!(&response);
     }
 
     stream.write_all(response.as_bytes()).unwrap();
