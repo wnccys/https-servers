@@ -2,10 +2,8 @@ use std::io::{prelude::*, BufReader};
 use std::net::{TcpListener, TcpStream};
 
 fn main() -> std::io::Result<()> {
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    println!("Logs from your program will appear here!");
-
     let listener = TcpListener::bind("127.0.0.1:4221").expect("Could not bind server.");
+    println!("Server Initialized");
 
     for stream in listener.incoming() {
         handle_request(stream?);
@@ -15,25 +13,67 @@ fn main() -> std::io::Result<()> {
 }
 
 fn handle_request(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
+    let mut buf_reader = BufReader::new(&mut stream).lines();
+    // 0 => meta, 1 => headers, 2 => body;
+    let mut request = [String::new(), String::new(), String::new()];
+    request[0] = buf_reader.next().unwrap().unwrap();
 
-    let requested_line = buf_reader.lines().next().unwrap().unwrap();
-    let route = requested_line.split_whitespace().nth(1).unwrap();
-    let mut response: String = "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
+    let route = request[0].split(' ').nth(1).unwrap().to_owned();
+    dbg!(&route);
 
-    dbg!(&requested_line);
-    dbg!(route);
+    for line in buf_reader {
+        let line = line.unwrap().to_owned();
 
-    if route == "/" {
-        response = "HTTP/1.1 200 OK\r\n\r\n".to_string();
-    } else if route.contains("/echo/") {
-        let string_param = route.split_once("/echo/").unwrap().1.to_string();
-        let string_param_len = string_param.len().to_string().to_owned();
-        response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {string_param_len}\r\n\r\n{string_param}"
-        );
-        dbg!(&response);
+        println!("line: {}", line);
+
+        if line.is_empty() {
+            request[2].push_str(&line);
+            break;
+        } else {
+            request[1].push_str(&line);
+            request[1].push_str("\r\n");
+        }
     }
 
+    let response = match &route[..] {
+        "/" => "HTTP/1.1 200 OK\r\n\r\n".to_string(),
+        _ if route.contains("/echo/") => handle_route(&route),
+        "/user-agent" => handle_user_agent(&request[1]),
+        _ => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
+    };
+
+    dbg!(&response);
     stream.write_all(response.as_bytes()).unwrap();
+    println!("response sent");
+}
+
+fn handle_route(route: &str) -> String {
+    let str = route.split_once("/echo/").unwrap().1;
+    let str_len = str.len().to_string().to_owned();
+    let formatted_string = format!(
+        "{}{}{}{}",
+        "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ", str_len, "\r\n\r\n", str
+    );
+
+    formatted_string
+}
+
+fn handle_user_agent(headers: &str) -> String {
+    let header = headers
+        .split("\r\n")
+        .nth(1)
+        .unwrap()
+        .split_once(' ')
+        .unwrap()
+        .1;
+
+    let header_len = header.len();
+
+    format!(
+        "{}{}{}{}",
+        "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ",
+        header_len,
+        "\r\n\r\n",
+        header
+    )
 }
