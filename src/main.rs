@@ -59,6 +59,21 @@ fn handle_route(route: &str) -> String {
 }
 
 fn handle_user_agent(headers: &str) -> String {
-    let header = headers.split("\r\n").nth(1).unwrap();
-    header.to_string()
+    let header = headers
+        .split("\r\n")
+        .nth(1)
+        .unwrap()
+        .split_once(' ')
+        .unwrap()
+        .1;
+
+    let header_len = header.len();
+
+    format!(
+        "{}{}{}{}",
+        "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ",
+        header_len,
+        "\r\n\r\n",
+        header
+    )
 }
