@@ -2,7 +2,7 @@ use std::io::{prelude::*, BufReader};
 use std::net::{TcpListener, TcpStream};
 
 fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:8080").expect("Could not bind server.");
+    let listener = TcpListener::bind("127.0.0.1:4221").expect("Could not bind server.");
     println!("Server Initialized");
 
     for stream in listener.incoming() {
