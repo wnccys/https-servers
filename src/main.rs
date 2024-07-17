@@ -36,10 +36,10 @@ fn handle_request(mut stream: TcpStream) {
     }
 
     let response = match &route[..] {
-        "/" => "HTTP/1.1 200 OK \r\n\r\n".to_string(),
+        "/" => "HTTP/1.1 200 OK\r\n\r\n".to_string(),
         _ if route.contains("/echo/") => handle_route(&route),
         "/user-agent" => handle_user_agent(&request[1]),
-        _ => "HTTP/1.1 404 Not Found \r\n\r\n".to_string(),
+        _ => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
     };
 
     dbg!(&response);
