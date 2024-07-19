@@ -1,15 +1,83 @@
 use std::io::{prelude::*, BufReader};
 use std::net::{TcpListener, TcpStream};
+use std::{
+    sync::{mpsc, Arc, Mutex},
+    thread,
+};
 
 fn main() -> std::io::Result<()> {
     let listener = TcpListener::bind("127.0.0.1:4221").expect("Could not bind server.");
-    println!("Server Initialized");
+    println!("Server Initialized.");
+
+    let pool = ThreadPool::new(4);
 
     for stream in listener.incoming() {
-        handle_request(stream?);
+        let stream = stream.unwrap();
+
+        pool.execute(|| {
+            handle_request(stream);
+        });
     }
 
     Ok(())
+}
+
+struct ThreadPool {
+    workers: Vec<Worker>,
+    sender: mpsc::Sender<Job>,
+}
+
+struct Worker {
+    id: usize,
+    thread: thread::JoinHandle<()>,
+}
+
+type Job = Box<dyn FnOnce() + Send + 'static>;
+
+impl Worker {
+    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
+        Worker {
+            id,
+            thread: thread::spawn(move || loop {
+                let job = receiver
+                    .lock()
+                    .expect("error trying to lock thread. Probably in use by other thread.")
+                    .recv()
+                    .unwrap();
+
+                println!("Worker {id} got a job; executing.");
+
+                job();
+            }),
+        }
+    }
+}
+
+impl ThreadPool {
+    fn new(size: usize) -> ThreadPool {
+        assert!(size > 0);
+
+        let (sender, receiver) = mpsc::channel();
+
+        let receiver = Arc::new(Mutex::new(receiver));
+
+        let mut workers = Vec::with_capacity(size);
+
+        for id in 0..size {
+            workers.push(Worker::new(id, Arc::clone(&receiver)));
+        }
+
+        ThreadPool { workers, sender }
+    }
+
+    fn execute<F>(&self, f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let job = Box::new(f);
+
+        self.sender.send(job).unwrap();
+    }
 }
 
 fn handle_request(mut stream: TcpStream) {
