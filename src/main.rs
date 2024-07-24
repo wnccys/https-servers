@@ -1,6 +1,8 @@
 use std::io::{prelude::*, BufReader};
 use std::net::{TcpListener, TcpStream};
 use std::{
+    env, fs,
+    path::Path,
     sync::{mpsc, Arc, Mutex},
     thread,
 };
@@ -41,7 +43,7 @@ impl Worker {
             thread: thread::spawn(move || loop {
                 let job = receiver
                     .lock()
-                    .expect("error trying to lock thread. Probably in use by other thread.")
+                    .expect("Error trying to lock thread. Probably in use by other thread.")
                     .recv()
                     .unwrap();
 
@@ -87,7 +89,6 @@ fn handle_request(mut stream: TcpStream) {
     request[0] = buf_reader.next().unwrap().unwrap();
 
     let route = request[0].split(' ').nth(1).unwrap().to_owned();
-    dbg!(&route);
 
     for line in buf_reader {
         let line = line.unwrap().to_owned();
@@ -105,7 +106,8 @@ fn handle_request(mut stream: TcpStream) {
 
     let response = match &route[..] {
         "/" => "HTTP/1.1 200 OK\r\n\r\n".to_string(),
-        _ if route.contains("/echo/") => handle_route(&route),
+        _ if route.split('/').nth(1).unwrap() == "echo" => handle_route(&route),
+        _ if route.split('/').nth(1).unwrap() == "files" => handle_files(&route),
         "/user-agent" => handle_user_agent(&request[1]),
         _ => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
     };
@@ -144,4 +146,34 @@ fn handle_user_agent(headers: &str) -> String {
         "\r\n\r\n",
         header
     )
+}
+
+fn handle_files(route: &str) -> String {
+    let args: Vec<String> = env::args().collect();
+    if args[1] != "--directory" {
+        return "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
+    }
+
+    let file = route.split('/').nth(2).unwrap();
+    let mut file_path = args[2].clone();
+    file_path.push_str(file);
+
+    let current_dir = env::current_dir().unwrap();
+    let mut absolute_path = current_dir.to_str().unwrap().to_string();
+    absolute_path.push_str(&file_path);
+    dbg!(&absolute_path);
+
+    let requested_file = fs::read_to_string(absolute_path);
+    dbg!(&requested_file);
+
+    match requested_file {
+        Ok(file_content) => {
+            let file_len = file_content.len().to_string();
+            format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}",
+                file_len, file_content,
+            )
+        }
+        _ => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
+    }
 }
