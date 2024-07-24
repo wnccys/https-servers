@@ -157,18 +157,14 @@ fn handle_files(route: &str) -> String {
     let file = route.split('/').nth(2).unwrap();
     let mut file_path = args[2].clone();
     file_path.push_str(file);
+    dbg!(&file_path);
 
-    let current_dir = env::current_dir().unwrap();
-    let mut absolute_path = args[0].clone();
-    dbg!(&absolute_path);
-    absolute_path.push_str(&file_path);
-    dbg!(&absolute_path);
-    dbg!(&current_dir);
+    // let current_dir = env::current_dir().unwrap();
     // let mut absolute_path = current_dir.to_str().unwrap().to_string();
     // absolute_path.push_str(&file_path);
     // dbg!(&absolute_path);
 
-    let requested_file = fs::read_to_string(absolute_path);
+    let requested_file = fs::read_to_string(file_path);
     dbg!(&requested_file);
 
     match requested_file {
